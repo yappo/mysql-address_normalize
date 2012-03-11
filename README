@@ -1,0 +1,20 @@
+INSTALL
+
+$ git clone git://github.com/yappo/mysql-address_normalize.git
+$ cd mysql-address_normalize
+$ g++ -lcurl -shared -fPIC -Wall -g mysql_address_normalize.cc -o mysql_address_normalize.so
+$ sudo cp mysql_address_normalize.so /foo/bar/lib/mysql/plugin/
+$ mysql -uroot
+mysql> create function address_normalize returns string soname 'mysql_address_normalize.so';
+
+USAGE
+
+  SELECT address_normalize('道玄坂二丁目2');
+
+SEE ALSO
+
+  http://blog.yappo.jp/yappo/archives/000770.html
+
+AUTHOR
+
+  Kazuhiro Osawa
