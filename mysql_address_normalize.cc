@@ -11,6 +11,7 @@ extern "C" {
 
 #define LOCTOUCH_API "https://api.loctouch.com/v1/geo/address_normalize?address="
 #define LOCTOUCH_API_LENGTH 58
+#define USER_AGENT "mysql_address_normalize/0.01"
 
 extern "C" {
 
@@ -85,6 +86,7 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
   curl_easy_setopt(curl, CURLOPT_UPLOAD, 0);
   curl_easy_setopt(curl, CURLOPT_POST, 0);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writedata);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
 
   initid->ptr        = (char *)(void *)curl;
   initid->const_item = 1;
