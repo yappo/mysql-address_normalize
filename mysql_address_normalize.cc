@@ -130,10 +130,10 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
       object obj  = v.get<object>();
       if (! obj["result"].is<object>())
         goto error;
-      object obj2 = obj["result"].get<object>();
-      if (! obj2["address"].is<string>())
+      object result = obj["result"].get<object>();
+      if (! result["address"].is<string>())
         goto error;
-      string address = obj2["address"].to_str();
+      string address = result["address"].to_str();
 
       normalized_address        = &(address)[0];
       normalized_address_length = address.size();
