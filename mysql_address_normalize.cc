@@ -22,38 +22,68 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 }
 
 
-struct write_stream {
+typedef struct context {
+  CURL *curl;
+  char *uri;
   char *data;
   size_t len;
   size_t pool_size;
-};
+} CTX;
+
+
+void ctx_reset(CTX *ctx)
+{
+  if (ctx->len > 0)
+  {
+    ctx->len     = 0;
+    ctx->data[0] = '\0';
+  }
+}
+
+
+int ctx_realloc(CTX *ctx, size_t size)
+{
+  char *new_buf;
+  size_t new_pool_size = ctx->pool_size ? ctx->pool_size : 256;
+
+  if (ctx->pool_size > size)
+    return 1;
+
+  while (new_pool_size <= size)
+    new_pool_size += new_pool_size;
+
+  if (ctx->pool_size == 0)
+  {
+    new_buf = (char *) malloc(new_pool_size);
+  } else {
+    new_buf = (char *) realloc(ctx->data, new_pool_size);
+  }
+  if (!new_buf)
+    return 0;
+
+  ctx->data      = new_buf;
+  ctx->pool_size = new_pool_size;
+
+  return 1;
+}
 
 
 static size_t writedata(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-  struct write_stream *buf = (write_stream *) stream;
+  CTX *ctx = (CTX *) stream;
   size_t block, buf_size;
+  int ret;
 
   block    = size * nmemb;
-  buf_size = buf->len + block;
-  if (buf->pool_size <= buf_size) {
-    char *new_buf;
-    size_t new_pool_size = buf->pool_size ? buf->pool_size : 256;
+  buf_size = ctx->len + block;
 
-    while (new_pool_size <= buf_size)
-      new_pool_size += new_pool_size;
+  ret = ctx_realloc(ctx, buf_size);
+  if (ret == 0)
+    return 0;
 
-    new_buf = (char *) my_realloc(buf->data, new_pool_size, MYF(MY_WME));
-    if (!new_buf)
-      return 0;
-
-    buf->data                = new_buf;
-    buf->data[new_pool_size] = new_pool_size;
-  }
-
-  memcpy(buf->data + buf->len, ptr, block);
-  buf->len            = buf_size;
-  buf->data[buf_size] = '\0';
+  memcpy(ctx->data + ctx->len, ptr, block);
+  ctx->len            = buf_size;
+  ctx->data[buf_size] = '\0';
 
   return block;
 }
@@ -62,6 +92,7 @@ static size_t writedata(void *ptr, size_t size, size_t nmemb, void *stream)
 my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
   CURL *curl;
+  CTX *ctx;
 
   if (args->arg_count != 1)
   {
@@ -74,7 +105,7 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
     return 1;
   }
 
-  args->maybe_null[0] = 0;
+  args->maybe_null[0] = 1;
 
   curl = curl_easy_init();
   if (!curl)
@@ -88,7 +119,15 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writedata);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
 
-  initid->ptr        = (char *)(void *)curl;
+  ctx = (CTX *) calloc(sizeof(CTX), 1);
+  if (!ctx)
+  {
+    strncpy(message, "address_normalize: context allocation error", MYSQL_ERRMSG_SIZE);
+    return 1;
+  }
+  ctx->curl = curl;
+
+  initid->ptr        = (char *)(void *)ctx;
   initid->const_item = 1;
 
   return 0;
@@ -97,7 +136,13 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 
 void address_normalize_deinit(UDF_INIT* initid)
 {
-  curl_easy_cleanup((CURL *)(void *)initid->ptr);
+  CTX *ctx = (CTX *)(void *)initid->ptr;
+  curl_easy_cleanup(ctx->curl);
+  if (ctx->pool_size > 0)
+  {
+    free(ctx->data);
+  }
+  free(ctx);
 }
 
 
@@ -105,37 +150,42 @@ using namespace std;
 using namespace picojson;
 char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error)
 {
-  CURL *curl;
+  CTX *ctx;
   CURLcode status;
   char *escaped_addres, *uri, *normalized_address;
   size_t escaped_addres_length, normalized_address_length;
-  struct write_stream curl_buf = { NULL, 0, 0 };
+  int ret;
 
-  curl = (CURL *) initid->ptr;
+  ctx = (CTX *) initid->ptr;
 
-  escaped_addres = curl_easy_escape(curl, args->args[0], args->lengths[0]);
+  escaped_addres = curl_easy_escape(ctx->curl, args->args[0], args->lengths[0]);
   if (!escaped_addres)
     goto error;
 
   escaped_addres_length = strlen(escaped_addres);
   uri = (char *) malloc(LOCTOUCH_API_LENGTH + strlen(escaped_addres) + 1);
+  if (!uri)
+    goto error;
+
   memcpy(uri, LOCTOUCH_API, LOCTOUCH_API_LENGTH);
   memcpy(uri + LOCTOUCH_API_LENGTH, escaped_addres, escaped_addres_length);
   uri[LOCTOUCH_API_LENGTH + escaped_addres_length] = '\0';
 
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &curl_buf);
-  curl_easy_setopt(curl, CURLOPT_URL, uri);
+  curl_easy_setopt(ctx->curl, CURLOPT_WRITEDATA, ctx);
+  curl_easy_setopt(ctx->curl, CURLOPT_URL, uri);
 
-  status = curl_easy_perform(curl);
+  ctx_reset(ctx);
+  status = curl_easy_perform(ctx->curl);
+  free(uri);
+
   if (status != CURLE_OK)
   {
     goto error;
-  } else
-  {
+  } else {
     value v;
     string err;
 
-    parse(v, curl_buf.data, curl_buf.data + curl_buf.len, &err);
+    parse(v, ctx->data, ctx->data + ctx->len, &err);
     if (err.empty()) {
       if (! v.is<object>())
         goto error;
@@ -154,20 +204,19 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
     }
   }
 
-  if (normalized_address_length > *length)
-  {
-    result = (char *) my_malloc(normalized_address_length, MYF(MY_WME));
-    if (!result)
-      goto error;
-  }
+  // recycle context data
+  ctx_reset(ctx);
+  ret = ctx_realloc(ctx, normalized_address_length);
+  if (ret == 0)
+    goto error;
 
-  memcpy(result, normalized_address, normalized_address_length);
+  memcpy(ctx->data, normalized_address, normalized_address_length);
   *length = normalized_address_length;
 
-  return result;
+  return ctx->data;
 
   error:
     *is_null = 1;
     *error = 1;
-    return 0;
+    return NULL;
 }
