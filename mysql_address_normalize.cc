@@ -60,6 +60,8 @@ static size_t writedata(void *ptr, size_t size, size_t nmemb, void *stream)
 
 my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
+  CURL *curl;
+
   if (args->arg_count != 1)
   {
     strncpy(message, "address_normalize: required 1 argument", MYSQL_ERRMSG_SIZE);
@@ -73,6 +75,18 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 
   args->maybe_null[0] = 0;
 
+  curl = curl_easy_init();
+  if (!curl)
+  {
+    strncpy(message, "address_normalize: curl init fail", MYSQL_ERRMSG_SIZE);
+    return 1;
+  }
+
+  curl_easy_setopt(curl, CURLOPT_UPLOAD, 0);
+  curl_easy_setopt(curl, CURLOPT_POST, 0);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writedata);
+
+  initid->ptr        = (char *)(void *)curl;
   initid->const_item = 1;
 
   return 0;
@@ -81,6 +95,7 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 
 void address_normalize_deinit(UDF_INIT* initid)
 {
+  curl_easy_cleanup((CURL *)(void *)initid->ptr);
 }
 
 
@@ -94,23 +109,18 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
   size_t escaped_addres_length, normalized_address_length;
   struct write_stream curl_buf = { NULL, 0, 0 };
 
-  curl = curl_easy_init();
-  if (!curl)
-    return NULL;
+  curl = (CURL *) initid->ptr;
 
   escaped_addres = curl_easy_escape(curl, args->args[0], args->lengths[0]);
   if (!escaped_addres)
     goto error;
-  escaped_addres_length = strlen(escaped_addres);
 
+  escaped_addres_length = strlen(escaped_addres);
   uri = (char *) malloc(LOCTOUCH_API_LENGTH + strlen(escaped_addres) + 1);
   memcpy(uri, LOCTOUCH_API, LOCTOUCH_API_LENGTH);
   memcpy(uri + LOCTOUCH_API_LENGTH, escaped_addres, escaped_addres_length);
   uri[LOCTOUCH_API_LENGTH + escaped_addres_length] = '\0';
 
-  curl_easy_setopt(curl, CURLOPT_UPLOAD, 0);
-  curl_easy_setopt(curl, CURLOPT_POST, 0);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writedata);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &curl_buf);
   curl_easy_setopt(curl, CURLOPT_URL, uri);
 
@@ -152,7 +162,6 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
   memcpy(result, normalized_address, normalized_address_length);
   *length = normalized_address_length;
 
-  curl_easy_cleanup(curl);
   return result;
 
   error:
