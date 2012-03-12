@@ -154,7 +154,8 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 {
   CTX *ctx;
   CURLcode status;
-  char *escaped_addres, *uri, *normalized_address;
+  char *escaped_addres, *uri;
+  const char *normalized_address;
   size_t escaped_addres_length, normalized_address_length;
   long long is_strict_mode;
   int ret;
@@ -220,7 +221,7 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
         goto error;
       string address = result["address"].to_str();
 
-      normalized_address        = &(address)[0];
+      normalized_address        = address.c_str();
       normalized_address_length = address.size();
     } else {
       goto error;
