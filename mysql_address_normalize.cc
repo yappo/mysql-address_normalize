@@ -235,6 +235,7 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
     goto error;
 
   memcpy(ctx->data, normalized_address, normalized_address_length);
+  ctx->data[normalized_address_length] = '\0';
   *length = normalized_address_length;
 
   return ctx->data;
