@@ -161,6 +161,9 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 
   ctx = (CTX *) initid->ptr;
 
+  if (args->lengths[0] == 0)
+    goto error;
+
   escaped_addres = curl_easy_escape(ctx->curl, args->args[0], args->lengths[0]);
   if (!escaped_addres)
     goto error;
