@@ -9,7 +9,11 @@ mysql> create function address_normalize returns string soname 'mysql_address_no
 
 USAGE
 
+  # 普通の使い方
   SELECT address_normalize('道玄坂二丁目2');
+
+  # 住所正規化処理が正しく行えなければ NULL を返す(JSON の is_error が 1 の時)
+  SELECT address_normalize('道玄坂二丁目2', 1);
 
 SEE ALSO
 

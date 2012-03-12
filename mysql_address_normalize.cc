@@ -94,9 +94,9 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
   CURL *curl;
   CTX *ctx;
 
-  if (args->arg_count != 1)
+  if (args->arg_count < 1 || args->arg_count > 2)
   {
-    strncpy(message, "address_normalize: required 1 argument", MYSQL_ERRMSG_SIZE);
+    strncpy(message, "address_normalize: required one or two argument", MYSQL_ERRMSG_SIZE);
     return 1;
   }
   if (args->arg_type[0] != STRING_RESULT)
@@ -105,7 +105,9 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
     return 1;
   }
 
-  args->maybe_null[0] = 1;
+  args->arg_type[1]   = INT_RESULT;
+  args->maybe_null[0] = 0;
+  args->maybe_null[1] = 0;
 
   curl = curl_easy_init();
   if (!curl)
@@ -154,6 +156,7 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
   CURLcode status;
   char *escaped_addres, *uri, *normalized_address;
   size_t escaped_addres_length, normalized_address_length;
+  long long is_strict_mode;
   int ret;
 
   ctx = (CTX *) initid->ptr;
@@ -178,6 +181,13 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
   status = curl_easy_perform(ctx->curl);
   free(uri);
 
+  if (args->arg_count == 2)
+  {
+    is_strict_mode = *(args->args[1]);
+  } else {
+    is_strict_mode = 0;
+  }
+
   if (status != CURLE_OK)
   {
     goto error;
@@ -190,6 +200,16 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
       if (! v.is<object>())
         goto error;
       object obj  = v.get<object>();
+
+      if (is_strict_mode == 1)
+      {
+        // strict mode
+        if (! obj["is_error"].is<double>())
+          goto error;
+	if (obj["is_error"].get<double>() == 1.0)
+          goto error;
+      }
+
       if (! obj["result"].is<object>())
         goto error;
       object result = obj["result"].get<object>();
