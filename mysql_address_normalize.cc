@@ -240,6 +240,6 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 
   error:
     *is_null = 1;
-    *error = 1;
+    //*error = 1;
     return NULL;
 }
