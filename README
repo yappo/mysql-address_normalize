@@ -6,6 +6,7 @@ $ g++ -lcurl -shared -fPIC -Wall -g mysql_address_normalize.cc -o mysql_address_
 $ sudo cp mysql_address_normalize.so /foo/bar/lib/mysql/plugin/
 $ mysql -uroot
 mysql> create function address_normalize returns string soname 'mysql_address_normalize.so';
+mysql> create function last_region_id returns string soname 'mysql_address_normalize.so';
 
 USAGE
 
@@ -14,6 +15,9 @@ USAGE
 
   # 住所正規化処理が正しく行えなければ NULL を返す(JSON の is_error が 1 の時)
   SELECT address_normalize('道玄坂二丁目2', 1);
+
+  # 同時に region_id を取得したい場合
+  SELECT address_normalize('道玄坂二丁目2'), last_region_id(); -- 必ず address_normalize() の後に実行するようにしないと正しい region_id が取得出来ない
 
 SEE ALSO
 

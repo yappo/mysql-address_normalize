@@ -19,8 +19,13 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
 void address_normalize_deinit(UDF_INIT* initid);
 char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error);
 
+my_bool last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
+void last_region_id_deinit(UDF_INIT* initid);
+char* last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error);
+
 }
 
+char region_id[6];
 
 typedef struct context {
   CURL *curl;
@@ -93,6 +98,8 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
   CURL *curl;
   CTX *ctx;
+
+  region_id[0] = '\0';
 
   if (args->arg_count < 1 || args->arg_count > 2)
   {
@@ -223,6 +230,19 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 
       normalized_address        = address.c_str();
       normalized_address_length = address.size();
+
+      // save the last region_id
+      if (obj["result"].is<object>())
+      {
+        object result_obj = obj["result"].get<object>();
+        if (result_obj["region_id"].is<string>() && result_obj["region_id"].get<string>().size() == 5)
+        {
+          memcpy(&region_id, result_obj["region_id"].get<string>().c_str(), 5);
+        } else {
+          memcpy(&region_id, "00000", 5);
+        }
+        region_id[5] = '\0';
+      }
     } else {
       goto error;
     }
@@ -244,4 +264,38 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
     *is_null = 1;
     //*error = 1;
     return NULL;
+}
+
+
+my_bool last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
+{
+  char *str;
+  str = (char *) malloc(6);
+  if (!str)
+    return 1;
+  initid->ptr = str;
+  return 0;
+}
+
+
+void last_region_id_deinit(UDF_INIT* initid)
+{
+  if (initid->ptr)
+    free(initid->ptr);
+}
+
+
+char* last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error)
+{
+  if (strlen(region_id) != 5)
+  {
+    // is error
+    *is_null = 1;
+    return NULL;
+  }
+
+  memcpy(initid->ptr, &region_id, 6);
+  *length = 5;
+
+  return initid->ptr;
 }
