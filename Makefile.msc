@@ -1,0 +1,7 @@
+all: mysql_address_normalize.dll
+
+mysql_address_normalize.dll : mysql_address_normalize.obj
+	link -dll mysql_address_normalize.obj curl.lib user32.lib
+
+mysql_address_normalize.obj : mysql_address_normalize.cc
+	cl -EHsc -DMYSQL_DYNAMIC_PLUGIN -c -I. -Ic:/progra~1/mysql/mysqls~1.5/include mysql_address_normalize.cc
