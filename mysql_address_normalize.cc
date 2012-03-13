@@ -19,9 +19,9 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
 void address_normalize_deinit(UDF_INIT* initid);
 char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error);
 
-my_bool last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
-void last_region_id_deinit(UDF_INIT* initid);
-char* last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error);
+my_bool address_normalize_last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message);
+void address_normalize_last_region_id_deinit(UDF_INIT* initid);
+char* address_normalize_last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error);
 
 }
 
@@ -267,7 +267,7 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 }
 
 
-my_bool last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
+my_bool address_normalize_last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 {
   char *str;
   str = (char *) malloc(6);
@@ -278,14 +278,14 @@ my_bool last_region_id_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
 }
 
 
-void last_region_id_deinit(UDF_INIT* initid)
+void address_normalize_last_region_id_deinit(UDF_INIT* initid)
 {
   if (initid->ptr)
     free(initid->ptr);
 }
 
 
-char* last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error)
+char* address_normalize_last_region_id(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned long* length, char* is_null, char* error)
 {
   if (strlen(region_id) != 5)
   {
