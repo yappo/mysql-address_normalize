@@ -194,7 +194,7 @@ char* address_normalize(UDF_INIT* initid, UDF_ARGS* args, char* result, unsigned
 
   if (args->arg_count == 2)
   {
-    is_strict_mode = *(args->args[1]);
+    is_strict_mode = *((long long*) args->args[1]);
   } else {
     is_strict_mode = 0;
   }
