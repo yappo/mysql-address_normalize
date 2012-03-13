@@ -1,5 +1,5 @@
-extern "C" {
 #include <my_global.h>
+extern "C" {
 #include <my_sys.h>
 #include <mysql.h>
 
