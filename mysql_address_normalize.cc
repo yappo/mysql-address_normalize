@@ -113,8 +113,7 @@ my_bool address_normalize_init(UDF_INIT* initid, UDF_ARGS* args, char* message)
   }
 
   args->arg_type[1]   = INT_RESULT;
-  args->maybe_null[0] = 0;
-  args->maybe_null[1] = 0;
+  initid->maybe_null = 0;
 
   curl = curl_easy_init();
   if (!curl)
